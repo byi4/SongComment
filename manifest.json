@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "Song Comment",
+  "plugin_id": "Song-Comment",
+  "moekoe": true,
+  "minversion": "0.0.0",
+  "description": "Song Comment",
+  "version": "1.0.0",
+  "author": {
+    "name": "byi4",
+    "url": "https://github.com/byi4"
+  },
+  "icons": {
+    "256": "icons/icon.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Song Comment",
+    "default_icon": {
+      "256": "icons/icon.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "css": ["style.css"],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ],
+  "permissions": ["scripting"],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "web_accessible_resources": []
+}

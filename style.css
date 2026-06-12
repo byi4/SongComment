@@ -1,0 +1,33 @@
+/* MoeKoeMusic Comment Plugin */
+
+/* ====== 评论徽章 - 简单文本 ====== */
+
+#moekoe-comment-btn {
+  position: relative;
+}
+
+#comment-badge {
+  font-size: 10px;
+  color: inherit;
+  margin-left: 2px;
+}
+
+#comment-badge.loading {
+  color: #999;
+}
+
+#comment-badge.error {
+  color: #e74c3c;
+}
+
+/* ====== 歌词页面评论入口按钮 ====== */
+
+#moekoe-lyrics-comment-btn {
+  position: relative;
+}
+
+#moekoe-lyrics-comment-badge {
+  font-size: 10px;
+  color: inherit;
+  margin-left: 2px;
+}
