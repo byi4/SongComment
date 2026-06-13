@@ -14,7 +14,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const els = {
     currentSong: document.getElementById('current-song'),
     commentCount: document.getElementById('comment-count'),
-    apiUrl: document.getElementById('api-url'),
     loginStatus: document.getElementById('login-status'),
     clearCache: document.getElementById('clear-cache'),
     statusMsg: document.getElementById('status-msg'),

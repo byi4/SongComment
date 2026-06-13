@@ -46,11 +46,6 @@ function getAuthHeaders() {
   return headers;
 }
 
-/**
- * 获取指定歌曲的评论数量（带缓存 + 重试 + 15s 超时）
- * @param {string} hash - 歌曲 hash
- * @returns {Promise<number|null>} 评论数，失败返回 null
- */
 // ====== 评论数据流水线 ======
 
 /** mixsongid 缓存 (hash → album_audio_id) */
@@ -300,13 +295,7 @@ async function fetchComments(mixsongid, page = 1, pageSize = 30, signal) {
 
 // ====== 徽章系统 ======
 
-/** 当前歌曲 hash，用于检测切换*/
-let currentHash = null;
-/** 递增请求 ID，用于竞态保护*/
-let currentRequestId = 0;
-/** 歌曲轮询定时器*/
-let songPollTimer = null;
-/** DOM 观察器*/
+/** DOM 观察器 */
 let badgeObserver = null;
 
 /**
@@ -324,83 +313,7 @@ function getCurrentSong() {
   }
 }
 
-/**
- * 预加载评论数据缓存（为打开面板加速）
- * @param {string} hash - 歌曲 hash
- */
-async function preloadCommentData(hash) {
-  const id = ++currentRequestId;
-  console.log(`[MoeKoeMusic Comment] 预加载评论数据 hash=${hash}`);
 
-  try {
-    const mixsongid = await resolveMixSongId(hash);
-    if (id !== currentRequestId) return;
-
-    if (!mixsongid) {
-      return;
-    }
-
-    // 预获取第1页评论，缓存到 commentListCache + mixsongidCache
-    await fetchComments(mixsongid, 1, 30);
-  } catch (e) {
-    if (id !== currentRequestId) return;
-    console.error('[MoeKoeMusic Comment] 预加载失败:', e.message);
-  }
-}
-
-/**
- * 处理歌曲切换事件
- * @param {string|null} newHash - 新歌曲 hash，null 表示无播放
- */
-function handleSongChange(newHash) {
-  if (newHash === currentHash) return;
-
-  // 取消正在进行的评论请求
-  if (currentCommentAbortController) {
-    currentCommentAbortController.abort();
-    currentCommentAbortController = null;
-  }
-
-  // 面板打开时关闭并重置
-  if (window.__commentPanel) {
-    window.__commentPanel.close();
-  }
-
-  currentHash = newHash;
-  console.log(`[MoeKoeMusic Comment] 歌曲切换: hash=${newHash || '空'}`);
-
-  if (!newHash) {
-    return;
-  }
-
-  preloadCommentData(newHash);
-}
-
-/**
- * 设置歌曲状态检测（localStorage + 轮询）
- */
-function setupSongDetection() {
-  // 立即读取当前状态
-  const song = getCurrentSong();
-  handleSongChange(song && song.hash ? song.hash : null);
-
-  // 监听 storage 事件（跨标签页切换时触发）
-  window.addEventListener('storage', (e) => {
-    if (e.key === 'current_song') {
-      const newSong = e.newValue ? JSON.parse(e.newValue) : null;
-      handleSongChange(newSong && newSong.hash ? newSong.hash : null);
-    }
-  });
-
-  // 轮询检测同一页面内的歌曲切换（storage 事件在相同标签页不触发）
-  songPollTimer = setInterval(() => {
-    const song = getCurrentSong();
-    const newHash = song && song.hash ? song.hash : null;
-    if (newHash !== currentHash) {
-      handleSongChange(newHash);
-    }
-  }, 2000);
-}
 
 /**
  * 去除评论内容中的引用回复部分（`//@` 及其之后的内容）
@@ -987,13 +900,13 @@ function initPanel() {
   panel.appendChild(commentList);
   panel.appendChild(pagination);
 
-  // 注入?Shadow DOM
+  // 注入 Shadow DOM
   panelRoot.appendChild(style);
   panelWrapper.appendChild(overlay);
   panelWrapper.appendChild(panel);
   panelRoot.appendChild(panelWrapper);
 
-  // 挂载容器?body
+  // 挂载容器到 body
   document.body.appendChild(container);
 
   // ===== 事件绑定 =====
@@ -1004,10 +917,10 @@ function initPanel() {
   // 遮罩点击关闭
   overlay.addEventListener('click', closePanel);
 
-  // 阻止面板内部点击冒泡到遮
+  // 阻止面板内部点击冒泡到遮罩
   panel.addEventListener('click', function (e) { e.stopPropagation(); });
 
-  // Escape 键关
+  // Escape 键关闭
   document.addEventListener('keydown', function onKeyDown(e) {
     if (e.key === 'Escape' && isPanelOpen()) {
       closePanel();
@@ -1043,7 +956,6 @@ function initPanel() {
   // ===== 面板接口方法 =====
 
   let currentPage = 1;
-  let playingSongId = null;
   let currentMixsongid = null;
   let currentSongHash = null;
 
@@ -1082,7 +994,7 @@ function initPanel() {
   }
 
   /**
-   * 切换面板打开/关闭状
+   * 切换面板打开/关闭状态
    * @param {string} [songName] - 歌曲名称
    */
   function togglePanel(songName) {
@@ -1093,7 +1005,7 @@ function initPanel() {
     }
   }
 
-  // ===== 时间格式?=====
+  // ===== 时间格式 =====
 
   function formatCommentTime(timestamp) {
     const now = Date.now();
@@ -1112,13 +1024,13 @@ function initPanel() {
     return y + '-' + m + '-' + d;
   }
 
-  // ===== 状态渲染函?=====
+  // ===== 状态渲染函数 =====
 
   function showLoadingState() {
     commentList.textContent = '';
     const status = document.createElement('div');
     status.className = 'comment-status loading';
-    status.textContent = '加载?..';
+    status.textContent = '加载中...';
     commentList.appendChild(status);
   }
 
@@ -1243,9 +1155,9 @@ function initPanel() {
     container.style.display = 'block';
     const loadingDiv = document.createElement('div');
     loadingDiv.className = 'reply-loading';
-    loadingDiv.textContent = '加载?..';
+    loadingDiv.textContent = '加载中...';
     container.appendChild(loadingDiv);
-    toggleBtn.textContent = '加载?..';
+    toggleBtn.textContent = '加载中...';
 
     try {
       const API_BASE = 'http://127.0.0.1:6521';
@@ -1399,14 +1311,14 @@ function initPanel() {
       return;
     }
 
-    // 如果歌曲变了，重置到?
+    // 如果歌曲变了，重置到第1页
     if (hash !== currentSongHash) {
       currentSongHash = hash;
       currentPage = 1;
       currentMixsongid = null;
     }
 
-    // 检查评论列表缓
+    // 检查评论列表缓存
     const cacheKey = `${currentMixsongid || hash}_${currentPage}`;
     const cachedList = getFromCache(cacheKey, commentListCache);
     if (cachedList) {
@@ -1445,7 +1357,7 @@ function initPanel() {
     // 获取评论
     const result = await fetchComments(mixsongid, currentPage, 30, signal);
 
-    // 写入缓存（使?mixsongid_page 作为键）
+    // 写入缓存（使用 mixsongid_page 作为键）
     const newCacheKey = `${mixsongid}_${currentPage}`;
     setToCache(newCacheKey, result, commentListCache);
 
@@ -1491,8 +1403,8 @@ let lyricsBtn = null;
 let lyricsObserver = null;
 
 /**
- * 初始化歌词页面评论入
- * 监听 hash 路由变化，检?/lyrics 页面并注入评论按
+   * 初始化歌词页面评论入口
+   * 监听 hash 路由变化，检测 /lyrics 页面并注入评论按钮
  */
 function initLyricsEntry() {
   // 立即检测当前路
@@ -1511,7 +1423,7 @@ function checkLyricsRoute() {
   const hash = location.hash || '';
 
   if (hash.includes('/lyrics') || hash.includes('/Lyrics')) {
-    // 歌词页面：等?DOM 渲染后注入按
+    // 歌词页面：等待 DOM 渲染后注入按钮
     waitForLyricsContainer();
   } else {
     // 非歌词页面：清理已注入的按钮
@@ -1526,7 +1438,7 @@ function waitForLyricsContainer() {
   // 如果按钮已存在，无需重复创建
   if (lyricsBtn && document.contains(lyricsBtn)) return;
 
-  // 歌词页面可能的注入点选择器列表（按优先级排列
+  // 歌词页面可能的注入点选择器列表（按优先级排列）
   const selectors = [
     '.lyrics-controls',
     '.lyrics-page .controls',
@@ -1572,7 +1484,7 @@ function waitForLyricsContainer() {
 function injectLyricsButton(container) {
   // 避免重复注入
   if (lyricsBtn && document.contains(lyricsBtn)) return;
-  // 清理旧引
+  // 清理旧引用
   cleanupLyricsEntry();
 
   const btn = document.createElement('button');
@@ -1616,7 +1528,7 @@ function cleanupLyricsEntry() {
 
 document.addEventListener('DOMContentLoaded', () => {
   console.log('[MoeKoeMusic Comment] DOMContentLoaded 触发，document.readyState=' + document.readyState);
-  console.log('[MoeKoeMusic Comment] DOM 就绪，等待歌曲状?..');
+  console.log('[MoeKoeMusic Comment] DOM 就绪，等待歌曲状态...');
 
   // 初始化入
   function init() {
