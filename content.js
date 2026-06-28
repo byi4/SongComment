@@ -316,14 +316,74 @@ function getCurrentSong() {
 
 
 /**
- * 去除评论内容中的引用回复部分（`//@` 及其之后的内容）
+ * 获取评论用户显示名
+ * @param {Object} item - 评论或回复对象
+ * @returns {string} 用户名
+ */
+function getCommentAuthorName(item) {
+  if (!item) return '';
+  return item.nickname || item.user_name || item.username || '';
+}
+
+/**
+ * 获取评论用户 ID
+ * @param {Object} item - 评论或回复对象
+ * @returns {string} 用户 ID
+ */
+function getCommentAuthorId(item) {
+  if (!item) return '';
+  return String(item.user_id || item.userid || item.uid || '').trim();
+}
+
+/**
+ * 获取回复目标用户 ID
+ * @param {Object} item - 回复对象
+ * @returns {string} 回复目标用户 ID
+ */
+function getReplyTargetUserId(item) {
+  if (!item) return '';
+  const targetId = item.puser_id || item.parent_user_id || item.reply_user_id || item.reply_to_user_id || '';
+  const normalized = String(targetId).trim();
+  return normalized === '0' ? '' : normalized;
+}
+
+/**
+ * 标准化用于比较的用户名
+ * @param {string} name - 用户名
+ * @returns {string} 标准化后的用户名
+ */
+function normalizeCommentAuthorName(name) {
+  return String(name || '').trim().replace(/^@+/, '').trim();
+}
+
+/**
+ * 只去除回复楼主时附带的引用内容（`//@楼主:` 及其之后的内容）
  * @param {string} text - 原始评论内容
+ * @param {Object} reply - 回复对象
+ * @param {Object} parentComment - 楼主评论对象
  * @returns {string} 处理后的内容
  */
-function stripQuotedReply(text) {
+function stripQuotedReplyToParent(text, reply, parentComment) {
   if (!text) return '';
+
   const idx = text.indexOf('//@');
-  return idx !== -1 ? text.substring(0, idx).trim() : text;
+  if (idx === -1) return text;
+
+  const replyTargetId = getReplyTargetUserId(reply);
+  const parentAuthorId = getCommentAuthorId(parentComment);
+  if (replyTargetId && parentAuthorId) {
+    return replyTargetId === parentAuthorId ? text.substring(0, idx).trim() : text;
+  }
+
+  const quote = text.substring(idx);
+  const match = quote.match(/^\/\/@\s*([^:：]+)\s*[:：]/);
+  if (!match) return text;
+
+  const quotedAuthor = normalizeCommentAuthorName(match[1]);
+  const parentAuthor = normalizeCommentAuthorName(getCommentAuthorName(parentComment));
+  return quotedAuthor && parentAuthor && quotedAuthor === parentAuthor
+    ? text.substring(0, idx).trim()
+    : text;
 }
 
 /**
@@ -1082,7 +1142,7 @@ function initPanel() {
 
     const username = document.createElement('span');
     username.className = 'comment-username';
-    username.textContent = comment.nickname || comment.user_name || comment.username || '匿名';
+    username.textContent = getCommentAuthorName(comment) || '匿名';
 
     const time = document.createElement('span');
     time.className = 'comment-time';
@@ -1109,7 +1169,7 @@ function initPanel() {
     const contentEl = document.createElement('p');
     contentEl.className = 'comment-content';
     const rawContent = comment.content || comment.message || comment.text || '';
-    contentEl.textContent = stripQuotedReply(rawContent);
+    contentEl.textContent = rawContent;
 
     body.appendChild(meta);
     body.appendChild(contentEl);
@@ -1217,7 +1277,7 @@ function initPanel() {
       // 使用 DocumentFragment 批量渲染
       const fragment = document.createDocumentFragment();
       for (let i = 0; i < replies.length; i++) {
-        fragment.appendChild(renderReplyItem(replies[i]));
+        fragment.appendChild(renderReplyItem(replies[i], parentComment));
       }
       container.appendChild(fragment);
 
@@ -1242,7 +1302,7 @@ function initPanel() {
     }
   }
 
-  function renderReplyItem(reply) {
+  function renderReplyItem(reply, parentComment) {
     const item = document.createElement('div');
     item.className = 'reply-item';
 
@@ -1252,7 +1312,7 @@ function initPanel() {
 
     const replyUser = document.createElement('span');
     replyUser.className = 'reply-user';
-    replyUser.textContent = reply.nickname || reply.user_name || reply.username || '匿名';
+    replyUser.textContent = getCommentAuthorName(reply) || '匿名';
 
     const replyTime = document.createElement('span');
     replyTime.className = 'reply-time';
@@ -1271,7 +1331,7 @@ function initPanel() {
     const replyContent = document.createElement('div');
     replyContent.className = 'reply-content';
     const rawReply = reply.content || reply.message || reply.text || '';
-    replyContent.textContent = stripQuotedReply(rawReply);
+    replyContent.textContent = stripQuotedReplyToParent(rawReply, reply, parentComment);
 
     item.appendChild(header);
     item.appendChild(replyContent);
